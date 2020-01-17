@@ -218,6 +218,7 @@ class QAC:
         # Initialize stopwords and lemmatizer
         self.stopwords = set(stopwords.words('english'))
         self.lemmatizer = WordNetLemmatizer()
+        self.initialize_wordnet()
 
         # Get filenames
         if self.evaluate:
@@ -411,6 +412,14 @@ class QAC:
         self.lm = LM(lm_data_file)
         self.lm.load_model(lm_model_file)
         self.lm.initialize_trie()
+
+    def initialize_wordnet(self):
+        """Make sure the WordNet corpus is loaded by calling lemmatize().
+        This prevents long loading times when lemmatize() is called during
+        completion for the first time.
+        """
+        logger.info("Initializing WordNet")
+        self.lemmatizer.lemmatize("initialize")
 
     def set_max_suggestions(self, max_suggestions=DEFAULT_SUGGESTIONS):
         """Set the number of completions to present to the user.

@@ -27,11 +27,6 @@ from keras.models import Sequential
 from keras.models import model_from_json, load_model
 from keras.backend import set_session
 
-# Needed for usage in threaded flask server
-global graph
-global sess
-sess = tf.Session()
-graph = tf.get_default_graph()
 
 logging.basicConfig(format='%(asctime)s : %(message)s', datefmt="%H:%M:%S",
                     level=logging.INFO)
@@ -276,10 +271,13 @@ class LM():
                                    maxlen=self.max_sequence_len-1,
                                    padding='pre')
 
-        # Get probabilities for the next word
+        # This is necessary for the usage in a threaded flask server
+        global graph
+        global session
         with graph.as_default():
-            set_session(sess)
-            y_prob = self.model.predict(token_list)[0]
+            with session.as_default():
+                # Get probabilities for the next word
+                y_prob = self.model.predict(token_list)[0]
 
         if prefix:
             # Only consider words that match the prefix or are types depending
@@ -321,7 +319,12 @@ class LM():
 
         # Get probabilities for the next word
         matching_id = self.word_to_id(word)
-        y_prob = self.model.predict(token_list)[0]
+        # This is necessary for the usage in a threaded flask server
+        global graph
+        global session
+        with graph.as_default():
+            with session.as_default():
+                y_prob = self.model.predict(token_list)[0]
         return y_prob[matching_id]
 
     def probability_for_context(self, context):
@@ -353,21 +356,28 @@ class LM():
         logger.info("Model saved")
 
     def load_model(self, model_name):
+        """Load json and create model.
+        """
         logger.info("Load model from disk")
-        # load json and create model
-        # exclude the extension from the model name and add it separately for
-        # each operation
-        set_session(sess)
-        if ".json" in model_name or ".h5" in model_name:
-            model_name = model_name.replace(".json", "").replace(".h5", "")
-        json_file = open(model_name+".json", 'r', encoding="latin-1")
-        loaded_model_json = json_file.read()
-        json_file.close()
-        loaded_model = model_from_json(loaded_model_json)
-        # load weights into new model
-        loaded_model.load_weights(model_name+".h5")
-        self.model = loaded_model
-        self.max_sequence_len = self.model.layers[0].input_length + 1
+        # This is necessary for the usage in a threaded flask server
+        global graph
+        global session
+        graph = tf.Graph()
+        with graph.as_default():
+            session = tf.Session()
+            with session.as_default():
+                # Exclude the extension from the model name and add it separately for
+                # each operation
+                if ".json" in model_name or ".h5" in model_name:
+                    model_name = model_name.replace(".json", "").replace(".h5", "")
+                json_file = open(model_name+".json", 'r', encoding="latin-1")
+                loaded_model_json = json_file.read()
+                json_file.close()
+                loaded_model = model_from_json(loaded_model_json)
+                # load weights into new model
+                loaded_model.load_weights(model_name+".h5")
+                self.model = loaded_model
+                self.max_sequence_len = self.model.layers[0].input_length + 1
 
         logger.info("Model loaded")
 
