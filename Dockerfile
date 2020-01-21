@@ -16,8 +16,8 @@ ENV PYTHONIOENCODING=ISO-8859-1
 
 # Install python packages
 RUN pip3 install -r /home/requirements.txt
-RUN python3 -m nltk.downloader stopwords
-RUN python3 -m nltk.downloader wordnet
+RUN python3 -W ignore -m nltk.downloader stopwords
+RUN python3 -W ignore -m nltk.downloader wordnet
 
 CMD ["/bin/bash", "--rcfile", "bashrc"]
 
