@@ -66,7 +66,9 @@ individual_categories = ["Q5", "Q795052", "Q215627"]
 # Misc
 MAX_SUGGESTIONS = 10
 DEFAULT_SUGGESTIONS = 5
-ENTITY_PATTERN = r"\[([^\]\[|]*?)\|([^\]\[|]*?)\]"
+
+# Captures entities in the format [<QID>]
+ENTITY_PATTERN = r"\[([qQ][0-9]+?)\]"
 
 
 def is_type(string):
@@ -75,9 +77,14 @@ def is_type(string):
             and len(string) > 2)
 
 
+def is_entity(string):
+    """Returns whether the given string is an entity token or not."""
+    return re.match(ENTITY_PATTERN, string) != None
+
+
 def to_w2v_format(token):
     """Return a given entity token in the format as it would appear in the w2v
-    model: I.e. lowercase and entities in the format "[<qid>]"
+    model: I.e. lowercase and entities in the format "[<QID>]"
 
     Arguments:
     token - A string.
@@ -96,16 +103,6 @@ def to_w2v_format(token):
         return "[" + token.split(":", 1)[0] + "]"
     else:
         return "[" + token + "]"
-
-
-def form_entity(typ, name):
-    """Return an entity from a given type and name in the format: [type|name].
-
-    Arguments:
-    typ - the type of the entity. A string.
-    name - the label of the entity. A string.
-    """
-    return "[" + typ.strip("[]") + "|" + name + "]"
 
 
 def get_rotations(name):
@@ -134,21 +131,20 @@ def get_rotations(name):
 
 def tokenize_query(question, entity_pattern=ENTITY_PATTERN):
     """Gets a question prefix (string) and returns a list of tokens in which
-    entities of the form  "[some_type|some_string]" are not tokenized,
+    entities in the <entity_pattern> are not tokenized,
 
     Arguments:
     question - The question prefix. A string.
 
-    >>> tokenize_query("What did [person|Karl Rove] say ?")
+    >>> pattern = r"\[([^\]\[|]*?)\|([^\]\[|]*?)\]"
+    >>> tokenize_query("What did [person|Karl Rove] say ?", pattern)
     ['what', 'did', '[person|Karl Rove]', 'say', '?']
-    >>> tokenize_query("Who played [fictional_character|Gollum] in "\
-                       "[film|The Lord of the Rings: The Two Towers] ?")
+    >>> tokenize_query("Who played [fictional_character|Gollum] in [film|The Lord of the Rings: The Two Towers] ?", pattern)
     ['who', 'played', '[fictional_character|Gollum]', 'in', '[film|The Lord of the Rings: The Two Towers]', '?']
-    >>> tokenize_query("What is his [ [person|Charles Darwin] ] 's"\
-                       " contribution to ontology ?")
+    >>> tokenize_query("What is his [ [person|Charles Darwin] ] 's contribution to ontology ?", pattern)
     ['what', 'is', 'his', '[', '[person|Charles Darwin]', ']', "'s", 'contribution', 'to', 'ontology', '?']
-    >>> tokenize_query("What role did [person|Robert Downey Jr.] play ?")
-    ['what', 'role', 'did', '[person|Robert Downey Jr.]', 'play', '?']
+    >>> tokenize_query("What role did [Q203047] play ?")
+    ['what', 'role', 'did', '[Q203047]', 'play', '?']
     """
     tokenizer = RegexpTokenizer(r"""[^!"#$%&+;<=>@^\`{|}~“”\s_]+""")
     entities = list(re.finditer(entity_pattern, question))
@@ -458,14 +454,14 @@ class QAC:
         their computed scores.
 
         Arguments:
-        question_prefix - The typed question so far. A string.
+        question_prefix - The typed question so far. Entities as [<QID>]
         """
         # Store whether the last character was a space
-        space_last = False
-        if len(question_prefix) > 0 and question_prefix[-1] == " ":
-            space_last = True
+        space_last = len(question_prefix) > 0 and question_prefix[-1] == " "
 
+        # Tokenize question prefix
         prefix_toks = tokenize_query(question_prefix)
+        logger.info("tokenized query: %s" % prefix_toks)
 
         # Clear cache if the input field is empty or just one word
         if len(prefix_toks) <= 1:
@@ -474,33 +470,52 @@ class QAC:
         # Clear caches if they are becoming too big
         self.clear_caches(max_size=True)
 
-        # Get suggestions for new words
+        # Get completion predictions
         start = time.time()
-        new_words = self.get_completions(prefix_toks, space_last)
+        completions = self.get_completions(prefix_toks, space_last)
         logger.info("Time to get final words:\t%f" % (time.time() - start))
 
-        if new_words == []:
+        if completions == []:
             return []
 
-        # Put the suggested questions together
-        length = min(self.max_suggestions, len(new_words))
-        questions = [[] for i in range(length)]
-        for i in range(len(questions)):
-            # Get index at which the suggestion should be appended
-            cut = -new_words[i][3] if new_words[i][3] != 0 else None
-            questions[i] = [' '.join(prefix_toks[:cut]), new_words[i][2]]
-            if len(prefix_toks) > 1 or space_last:
-                questions[i][0] += " "
-
-            # Decide whether to append suggested word or entity
-            if new_words[i][1] != "":
-                questions[i][0] += new_words[i][1]
+        # Get qids, names and primary types of entities in current question prefix
+        prefix_qids = []
+        named_prefix_toks = []
+        prefix_types = []
+        for t in prefix_toks:
+            if is_entity(t):
+                qid = t.strip("[]").lower()
+                id = self.qid_to_id[qid]
+                name = self.name_index[id]
+                typ = self.type_index[id].split("/")[0].split(":")[1]
+                prefix_qids.append(qid)
+                named_prefix_toks.append("[" + name + "]")
+                prefix_types.append(typ)
             else:
-                questions[i][0] += new_words[i][0]
+                named_prefix_toks.append(t)
 
-            if len(questions[i][0]) > 0 and not questions[i][0][-1] == "?":
-                questions[i][0] += " "
-        return questions
+        # Put the predicted question (prefix) together
+        results = []
+        for word, qid, alias, typ, score, ind in completions[:self.max_suggestions]:
+            # Get index at which the completion should be appended
+            prefix_start = -ind if ind != 0 else None
+            # Get question prefix to which completion should be appended
+            question_prefix = ' '.join(named_prefix_toks[:prefix_start])
+            if len(named_prefix_toks) > 1 or space_last:
+                question_prefix += " "
+
+            # Append the completion
+            question_prefix += word
+
+            # Append a space if the question is not terminated by "?"
+            if len(question_prefix) > 0 and not question_prefix[-1] == "?":
+                question_prefix += " "
+
+            question_qids = prefix_qids + [qid]
+            question_types = prefix_types + [typ]
+            results.append((question_prefix, question_qids, question_types, alias, score))
+
+        return results
 
     def get_completions(self, context, space_last=True):
         """Given a list of words predict which word is most likely to follow.
@@ -512,8 +527,8 @@ class QAC:
         # Get the index of the last entity in the context
         ent_indices = [i for i, w in enumerate(context)
                        if re.match(ENTITY_PATTERN, w)]
-        # Get a list of previous context entities. Just names, not types
-        context_ents = [to_w2v_format(c[1]) for c in re.findall(ENTITY_PATTERN,
+        # Get a list of previous context entities
+        context_ents = [to_w2v_format(c) for c in re.findall(ENTITY_PATTERN,
                         ' '.join(context))]
         context_ents = [c for c in context_ents if c in self.word2vec.wv.vocab]
 
@@ -939,25 +954,25 @@ class QAC:
         """
         final_completions = []
         for w, q, s, i in completions[:self.max_suggestions]:
-            entity = ""
+            word = w
+            alias = ""
+            typ = ""
             if q:
                 id = self.qid_to_id[q]
                 name = self.name_index[id]
                 # Check if the completion was done for an alias of the entity
-                qid_name = q + ":" + name
                 norm_name = unidecode.unidecode(name).lower()
                 prefix = ' '.join(lm_context[len(lm_context)-i:])
                 prim_class = w.strip("[]").split("/")[0]
-                typ_qid, type_name = prim_class.split(":", 1)
-                if not norm_name.startswith(prefix) and \
-                        typ_qid.upper() not in individual_categories:
+                _, typ = prim_class.split(":", 1)
+                if not norm_name.startswith(prefix):
                     for al in self.aliases_index[id]:
                         norm_al = unidecode.unidecode(al).lower()
                         if norm_al.startswith(prefix):
-                            qid_name = q + ":" + name + " (alias=" + al + ")"
+                            alias = al
                             break
-                entity = form_entity(type_name, qid_name)
-            final_completions.append((w, entity, s, i))
+                word = "[" + name + "]"
+            final_completions.append((word, q, alias, typ, s, i))
         return final_completions
 
     def get_score_for_typ(self, id, typ):

@@ -22,22 +22,34 @@ to start the API. Alternatively, run `make help` to get additional information.
 ## Access the API
 Once you've started the API on server `<host>` with port `<port>` (i.e. 8181 when using above command), you can access the API with
 
-    http://<host>:<port>/?q=who%20played%20gand
+    http://<host>:<port>/?q=who%20played%20%5Bq177499%5D%20in%20lo
 
-This will return the top 5 completion predictions for the question prefix "who played gand" as JSON object in the format
+Wikidata entities in the question prefix must be in the format `[<QID>]`.
+This will return the top 5 completion predictions for the question prefix _"who played [Gandalf] in lo"_ as JSON object in the format
 
     {
-      "completions":[
+      "results":[
         {
-          "who played [sports team|q847326:Gandzasar-Kapan FC] ",
-          "score":0.0023540909127749638
+          "completion":"who played [Gandalf] in [The Lord of the Rings: The Fellowship of the Ring] ",
+          "matched_alias":"Lord of the Rings",
+          "qids":["q177499","q127367"],
+          "score":0.01866326314240102,
+          "types":["fictional character","film"]
         },
         {
-          "completion":"who played [fictional character|q177499:Gandalf] ",
-          "score":0.001912843623237519
+          "completion":"who played [Gandalf] in [The Lord of the Rings: The Return of the King] ",
+          "matched_alias":"Lord of the Rings: The Return of the King",
+          "qids":["q177499","q131074"],
+          "score":0.0130516884507797,
+          "types":["fictional character","film"]
         },
         ...
       ]
     }
 
-Wikidata entities are returned in the format `[<type>|<qid>:<label>]`.
+- `completion` is the completion string with entities in the format `[<entity_label>]`.
+- `matched_alias` is the alias which was matched against the current word prefix (_"lo"_).
+If the current word prefix matches the entity label (e.g. if the current word prefix was _"the lo"_), `matched_alias` is the empty string `""`.
+- `qids` is a list of QIDs of the entities in the completion string.
+- `score` is the score computed for the completion.
+- `types` is a list of types of the entities in the completion string.

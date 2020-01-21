@@ -21,10 +21,14 @@ def qac_api():
     question_prefix = parse.unquote(question_prefix)
 
     # Send results with proper HTTP headers.
-    completions = qac.complete_question(question_prefix)
-    json_obj = [{"completion": compl, "score": score}
-                for compl, score in completions]
-    json_obj = {"completions": json_obj}
+    results = qac.complete_question(question_prefix)
+    json_obj = [{"completion": compl,
+                 "qids": qids,
+                 "types": types,
+                 "matched_alias": alias,
+                 "score": score}
+                for compl, qids, types, alias, score in results]
+    json_obj = {"results": json_obj}
     return jsonify(json_obj)
 
 
