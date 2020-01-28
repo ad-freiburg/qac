@@ -364,7 +364,7 @@ class LM():
         global session
         graph = tf.Graph()
         with graph.as_default():
-            session = tf.Session()
+            session = tf.compat.v1.Session()
             with session.as_default():
                 # Exclude the extension from the model name and add it separately for
                 # each operation
