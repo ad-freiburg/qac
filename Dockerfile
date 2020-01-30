@@ -2,6 +2,7 @@ FROM ubuntu:18.04
 MAINTAINER Natalie Prange <prangen@informatik.uni-freiburg.de>
 
 RUN apt-get update && apt-get install -y make vim python3-pip
+RUN python3 -m pip install --upgrade pip
 
 COPY bashrc bashrc
 COPY Makefile /home/Makefile
