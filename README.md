@@ -8,16 +8,10 @@ The QAC system requires approximately 11GB of RAM and takes about 4 minutes to l
 ## Run the API
 All necessary datasets can be found under `/nfs/students/natalie-prange/` when using one of our chair's computer systems.
 
-Use docker to run the QAC API on port 8181. You can build and run the docker container using the following commands:
+Use docker to run the QAC API on port 8181. You can build the docker container and start the server using the following commands:
 
     docker build -t qac .
-    docker run -it -p 8181:80 -v /nfs/students/natalie-prange:/extern/data -v /nfs/students/natalie-prange/docker_output:/extern/output qac
-
-Within the docker container, simply run
-
-    python3 qac_api.py 80
-    
-to start the API. Alternatively, run `make help` to get additional information.
+    docker run --rm -it -p 8181:80 -v /nfs/students/natalie-prange:/data qac
 
 ## Access the API
 Once you've started the API on server `<host>` with port `<port>` (i.e. 8181 when using above command), you can access the API with

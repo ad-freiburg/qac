@@ -1,26 +1,22 @@
 FROM ubuntu:18.04
-MAINTAINER Natalie Prange <prangen@informatik.uni-freiburg.de>
+LABEL maintainer="prange@informatik.uni-freiburg.de"
+ENV PYTHONIOENCODING=UTF-8
 
-RUN apt-get update && apt-get install -y make vim python3-pip
+RUN apt-get update && apt-get install -y python3-pip
 RUN python3 -m pip install --upgrade pip
 
-COPY bashrc bashrc
-COPY Makefile /home/Makefile
+# Install python packages
 COPY requirements.txt /home/requirements.txt
+RUN pip3 install -r /home/requirements.txt
+RUN python3 -W ignore -m nltk.downloader stopwords
+RUN python3 -W ignore -m nltk.downloader wordnet
+
 COPY *.py /home/
 
 # Adjust paths for python scripts
 COPY docker_paths.py /home/global_paths.py
 
-# Set the python encoding
-ENV PYTHONIOENCODING=ISO-8859-1
-
-# Install python packages
-RUN pip3 install -r /home/requirements.txt
-RUN python3 -W ignore -m nltk.downloader stopwords
-RUN python3 -W ignore -m nltk.downloader wordnet
-
-CMD ["/bin/bash", "--rcfile", "bashrc"]
+CMD ["python3", "/home/qac_api.py", "80"]
 
 # docker build -t qac .
-# docker run -it -p 8181:80 -v /nfs/students/natalie-prange:/extern/data -v /nfs/students/natalie-prange/docker_output:/extern/output qac
+# docker run --rm -it -p 8181:80 -v /nfs/students/natalie-prange:/data qac
