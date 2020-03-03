@@ -508,8 +508,12 @@ class QAC:
             question_prefix += word
 
             # Append a space if the question is not terminated by "?"
-            if len(question_prefix) > 0 and not question_prefix[-1] == "?":
+            if len(question_prefix) > 0 and question_prefix[-1] != "?":
                 question_prefix += " "
+
+            # First character in question prefix should be upper case
+            if len(question_prefix) > 0 and question_prefix[0] != "[":
+                question_prefix = question_prefix[0].upper() + question_prefix[1:]
 
             question_qids = prefix_qids + [qid]
             question_types = prefix_types + [typ]
