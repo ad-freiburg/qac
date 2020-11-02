@@ -8,3 +8,4 @@ datrie==0.8
 unidecode==1.1.1
 tensorflow==1.15.2
 flask==1.1.1
+h5py==2.10.0
