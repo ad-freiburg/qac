@@ -19,4 +19,4 @@ COPY docker_paths.py /home/global_paths.py
 CMD ["python3", "/home/qac_api.py", "80"]
 
 # docker build -t qac .
-# docker run --rm -it -p 8181:80 -v /nfs/students/natalie-prange:/data qac
+# docker run --restart unless-stopped -it --detach -p 8181:80 -v /nfs/students/natalie-prange:/data qac
