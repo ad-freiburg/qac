@@ -6,6 +6,6 @@ matplotlib==3.1.2
 numpy==1.18.1
 datrie==0.8
 unidecode==1.1.1
-tensorflow==1.15.4
+tensorflow==2.9.3
 flask==1.1.1
 h5py==2.10.0
