@@ -11,7 +11,7 @@ All necessary datasets can be found under `/nfs/students/natalie-prange/` when u
 Use docker to run the QAC API on port 8181. You can build the docker container and start the server using the following commands:
 
     docker build -t qac .
-    docker run --rm -it -p 8181:80 -v /nfs/students/natalie-prange:/data qac
+    docker run --restart=unless-stopped -d -it -p 8181:80 -v /nfs/students/natalie-prange:/data qac
 
 ## Access the API
 Once you've started the API on server `<host>` with port `<port>` (i.e. 8181 when using above command), you can access the API with
