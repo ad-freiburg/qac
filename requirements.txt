@@ -1,4 +1,4 @@
-setuptools==45.1.0
+setuptools==65.5.1
 keras==2.3.1
 gensim==3.8.1
 nltk==3.4.5
